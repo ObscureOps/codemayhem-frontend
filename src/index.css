@@ -53,3 +53,351 @@
     scroll-behavior: auto !important;
   }
 }
+/* ============================================================
+   CISCODE / CYBER WORKBENCH
+   Freestyle + navigation presentation only
+   ============================================================ */
+
+.cyber-nav {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 14, 20, 1) 0%,
+      rgba(7, 10, 15, 1) 100%
+    );
+}
+
+.cyber-nav::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 177, 0, 0.22);
+}
+
+.cyber-nav::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 177, 0, 0.5),
+      rgba(255, 177, 0, 0.04) 28%,
+      rgba(37, 47, 59, 0.8) 72%,
+      rgba(255, 177, 0, 0.28)
+    );
+}
+
+.cyber-nav-noise {
+  opacity: 0.42;
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.014) 1px,
+      transparent 1px
+    );
+  background-size: 24px 24px;
+}
+
+.cyber-nav-link {
+  overflow: hidden;
+}
+
+.cyber-nav-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  pointer-events: none;
+}
+
+.cyber-nav-link:hover::before {
+  border-color: rgba(255, 177, 0, 0.12);
+}
+
+.cyber-nav-link-active {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 177, 0, 0.065),
+      rgba(255, 177, 0, 0.018)
+    );
+}
+
+.cyber-nav-link-active::before {
+  border-color: rgba(255, 177, 0, 0.48);
+  clip-path: polygon(
+    0 0,
+    98% 0,
+    100% 10%,
+    100% 89%,
+    98% 100%,
+    0 100%
+  );
+}
+
+.cyber-nav-link-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  background: #ffb100;
+  box-shadow: 0 0 9px rgba(255, 177, 0, 0.45);
+}
+
+.cyber-nav-corner {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cyber-nav-link-active .cyber-nav-corner {
+  opacity: 1;
+}
+
+.cyber-nav-corner-left {
+  left: 3px;
+  bottom: 2px;
+  border-left: 1px solid #ffb100;
+  border-bottom: 1px solid #ffb100;
+}
+
+.cyber-nav-corner-right {
+  right: 3px;
+  top: 2px;
+  border-right: 1px solid #ffb100;
+  border-top: 1px solid #ffb100;
+}
+
+.cyber-workbench {
+  position: relative;
+  isolation: isolate;
+}
+
+.cyber-workbench::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  z-index: 20;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 177, 0, 0.14) 9%,
+      rgba(255, 177, 0, 0.52) 42%,
+      rgba(255, 177, 0, 0.09) 74%,
+      transparent 100%
+    );
+}
+
+.cyber-topbar::after {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -18px;
+  width: 270px;
+  height: 90px;
+  border-top: 1px solid rgba(255, 177, 0, 0.26);
+  border-right: 1px solid rgba(255, 177, 0, 0.18);
+  border-radius: 50%;
+  transform: rotate(-11deg);
+  pointer-events: none;
+}
+
+.cyber-header-trace {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 37%,
+      rgba(46, 59, 73, 0.23) 37.1%,
+      transparent 37.2%,
+      transparent 62%,
+      rgba(46, 59, 73, 0.16) 62.1%,
+      transparent 62.2%
+    );
+}
+
+.cyber-terminal-mark {
+  position: relative;
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  color: #ffb100;
+  border: 1px solid rgba(255, 177, 0, 0.58);
+  background: #090d13;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 177, 0, 0.05),
+    0 0 0 1px rgba(10, 14, 20, 0.85);
+}
+
+.cyber-terminal-mark::before,
+.cyber-terminal-mark::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.cyber-terminal-mark::before {
+  left: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-left: 1px solid #ffb100;
+  border-bottom: 1px solid #ffb100;
+}
+
+.cyber-terminal-mark::after {
+  right: -1px;
+  top: -1px;
+  width: 11px;
+  height: 11px;
+  border-right: 1px solid #ffb100;
+  border-top: 1px solid #ffb100;
+}
+
+.cyber-grid {
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.014) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+  opacity: 0.26;
+}
+
+.cyber-output-grid {
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px
+    );
+  background-size: 100% 28px;
+  opacity: 0.42;
+}
+
+.cyber-output-mark {
+  position: relative;
+  display: flex;
+  height: 18px;
+  width: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 177, 0, 0.54);
+}
+
+.cyber-output-mark::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 5px;
+  height: 5px;
+  border-top: 1px solid #ffb100;
+  border-left: 1px solid #ffb100;
+}
+
+.cyber-output-mark::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 5px;
+  height: 5px;
+  border-bottom: 1px solid #ffb100;
+  border-right: 1px solid #ffb100;
+}
+
+.cyber-output-mark span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: #4c9a6a;
+  box-shadow: 0 0 6px rgba(76, 154, 106, 0.35);
+}
+
+.cyber-status-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 24%;
+  height: 1px;
+  background: rgba(255, 177, 0, 0.36);
+}
+
+.cyber-frame {
+  position: relative;
+}
+
+.cyber-frame::before,
+.cyber-frame::after {
+  content: '';
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.cyber-frame::before {
+  left: -1px;
+  top: -1px;
+  border-left: 1px solid #ffb100;
+  border-top: 1px solid #ffb100;
+}
+
+.cyber-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid #ffb100;
+  border-bottom: 1px solid #ffb100;
+}
+
+.cyber-modal {
+  background: #080c11;
+  border: 1px solid #303945;
+  box-shadow:
+    0 0 0 1px rgba(255, 177, 0, 0.04),
+    0 22px 80px rgba(0, 0, 0, 0.72);
+}
+
+.cyber-terminal-copy {
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .cyber-nav-link {
+    font-size: 10px;
+  }
+
+  .cyber-nav-link svg {
+    width: 17px;
+    height: 17px;
+  }
+}

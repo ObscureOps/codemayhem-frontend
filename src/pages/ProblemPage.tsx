@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MOCK_PROBLEMS, getVariantsForProblem } from '../api/mocks/problems';
@@ -9,9 +9,13 @@ import { useProblemSubmissionFlow } from '../features/problems/useProblemSubmiss
 import { useResizablePanes } from '../features/problems/useResizablePanes';
 import { ResizableDivider } from '../features/problems/ResizableDivider';
 import { HintSolutionReveal } from '../features/problems/HintSolutionReveal';
-import { useMultiFileEditor } from '../features/problems/useMultiFileEditor';
+import { useMultiFileEditor, type EditorFile } from '../features/problems/useMultiFileEditor';
 import { FileTabs } from '../features/problems/FileTabs';
 import { EditorSettingsPopover } from '../features/problems/EditorSettingsPopover';
+import { useCheckCodeFlow } from '../features/problems/useCheckCodeFlow';
+import { TestCasesTab } from '../features/problems/TestCasesTab';
+import { useExecutions } from '../features/problems/useExecutions';
+import { ExecutionsTab } from '../features/problems/ExecutionsTab';
 import type { EditorThemeName } from '../features/problems/editorTheme';
 
 const difficultyColor: Record<Difficulty, string> = {
@@ -26,21 +30,27 @@ export default function ProblemPage() {
   const { id } = useParams<{ id: string }>();
   const problem = MOCK_PROBLEMS.find((p) => p.id === id);
   const variants = id ? getVariantsForProblem(id) : [];
-
-  // Only C is enabled this milestone — the judge service only compiles C
-  // right now. java/sql tabs still render (per contract, the Language
-  // type keeps all three) but are permanently disabled with a "(soon)"
-  // label, regardless of whether a mock variant exists for them.
   const cVariant = variants.find((v) => v.language === 'c');
 
   const { state, submit, reset } = useProblemSubmissionFlow();
-  const { files, activeFileName, setActiveFileName, updateActiveFileContent, addFile, closeFile, resetFiles } =
-    useMultiFileEditor(cVariant?.boilerplate ?? '');
+  const { state: checkState, check, reset: resetCheck } = useCheckCodeFlow(cVariant?.id ?? '');
+  const {
+    files,
+    activeFileName,
+    setActiveFileName,
+    updateActiveFileContent,
+    addFile,
+    closeFile,
+    resetFiles,
+    restoreFiles,
+  } = useMultiFileEditor(cVariant?.boilerplate ?? '');
   const activeFile = files.find((f) => f.name === activeFileName);
+  const { checkpoints, addCheckpoint, clearAll } = useExecutions();
 
   const [fontSize, setFontSize] = useState(14);
   const [wordWrap, setWordWrap] = useState(false);
   const [editorTheme, setEditorTheme] = useState<EditorThemeName>('ink');
+  const [rightTab, setRightTab] = useState<'tests' | 'executions'>('tests');
 
   const {
     containerRef,
@@ -60,13 +70,37 @@ export default function ProblemPage() {
     centerMinWidth: 360,
   });
 
-  // Reset files + submission state whenever the C variant changes (i.e.
-  // navigating to a different problem).
   useEffect(() => {
     resetFiles(cVariant?.boilerplate ?? '');
     reset();
+    resetCheck();
+    clearAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cVariant?.id]);
+
+  // Save a checkpoint automatically whenever a Check-code run finishes —
+  // per the spec, this isn't a separate user action. Guards against the
+  // effect firing twice for the same completion (e.g. React StrictMode's
+  // dev double-invoke) by tracking the last-saved results reference.
+  const lastSavedRef = useRef<typeof checkState.results>(null);
+  useEffect(() => {
+    if (
+      checkState.status === 'done' &&
+      checkState.results &&
+      checkState.submittedFiles &&
+      checkState.results !== lastSavedRef.current
+    ) {
+      lastSavedRef.current = checkState.results;
+      const passedCount = checkState.results.filter((t) => t.passed).length;
+      addCheckpoint(checkState.submittedFiles, passedCount, checkState.results.length);
+    }
+  }, [checkState.status, checkState.results, checkState.submittedFiles, addCheckpoint]);
+
+  const handleRestore = (restoredFiles: EditorFile[]) => {
+    restoreFiles(restoredFiles);
+    reset();
+    resetCheck();
+  };
 
   if (!problem) {
     return (
@@ -79,15 +113,12 @@ export default function ProblemPage() {
     );
   }
 
-  // For the left-pane statement/samples, prefer the C variant; fall back
-  // to whatever variant exists (java/sql) so the statement itself is
-  // still readable even though the editor for it isn't enabled yet.
   const displayVariant = cVariant ?? variants[0];
 
   return (
     // NOTE: no mobile layout yet — desktop-only by explicit decision, see PROGRESS.md.
     <div ref={containerRef} className="flex h-[80vh] min-h-[600px] overflow-hidden">
-      {/* Left pane: problem statement, tags, samples, hints/solution */}
+      {/* Left pane */}
       {leftCollapsed ? (
         <button
           onClick={toggleLeft}
@@ -121,10 +152,7 @@ export default function ProblemPage() {
               {problem.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {problem.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="font-mono text-xs text-graphite border border-graphite px-2 py-0.5"
-                    >
+                    <span key={tag} className="font-mono text-xs text-graphite border border-graphite px-2 py-0.5">
                       {tag}
                     </span>
                   ))}
@@ -154,15 +182,11 @@ export default function ProblemPage() {
             </div>
           </section>
 
-          <ResizableDivider
-            ariaLabel="Resize problem panel"
-            onPointerDown={onDragLeft}
-            onKeyNudge={(d) => nudgeLeft(d)}
-          />
+          <ResizableDivider ariaLabel="Resize problem panel" onPointerDown={onDragLeft} onKeyNudge={(d) => nudgeLeft(d)} />
         </>
       )}
 
-      {/* Center pane: editor */}
+      {/* Center pane */}
       <section className="flex-1 min-w-0 bg-ink text-chalk flex flex-col min-h-0">
         <div className="flex items-center justify-between border-b border-graphite">
           <div className="flex" role="tablist" aria-label="Language">
@@ -201,13 +225,7 @@ export default function ProblemPage() {
 
         {cVariant && activeFile ? (
           <>
-            <FileTabs
-              files={files}
-              activeFileName={activeFileName}
-              onSelect={setActiveFileName}
-              onAdd={addFile}
-              onClose={closeFile}
-            />
+            <FileTabs files={files} activeFileName={activeFileName} onSelect={setActiveFileName} onAdd={addFile} onClose={closeFile} />
             <div className="flex-1 min-h-[240px]">
               <CodeEditor
                 language="c"
@@ -224,6 +242,8 @@ export default function ProblemPage() {
               result={state.result}
               onSubmit={() => submit('c', files, cVariant.id)}
               onReset={reset}
+              checkStatus={checkState.status}
+              onCheck={() => check(files)}
             />
           </>
         ) : (
@@ -237,7 +257,7 @@ export default function ProblemPage() {
         )}
       </section>
 
-      {/* Right pane: placeholder — Test Cases / Executions land in 4d–4f */}
+      {/* Right pane */}
       {rightCollapsed ? (
         <button
           onClick={toggleRight}
@@ -248,26 +268,56 @@ export default function ProblemPage() {
         </button>
       ) : (
         <>
-          <ResizableDivider
-            ariaLabel="Resize test panel"
-            onPointerDown={onDragRight}
-            onKeyNudge={(d) => nudgeRight(-d)}
-          />
+          <ResizableDivider ariaLabel="Resize test panel" onPointerDown={onDragRight} onKeyNudge={(d) => nudgeRight(-d)} />
 
           <section style={{ width: rightWidth }} className="shrink-0 bg-chalk text-ink overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b border-graphite">
+            <div className="flex items-center justify-between border-b border-graphite">
               <button
                 onClick={toggleRight}
                 aria-label="Collapse test panel"
-                className="text-graphite hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
+                className="text-graphite hover:text-ink p-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
               >
                 <ChevronRight size={16} />
               </button>
-              <span className="font-mono text-xs text-graphite">tests</span>
+              <div className="flex" role="tablist" aria-label="Right panel">
+                <button
+                  role="tab"
+                  aria-selected={rightTab === 'tests'}
+                  onClick={() => setRightTab('tests')}
+                  className={`font-mono text-xs px-3 py-2 border-l border-graphite focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal ${
+                    rightTab === 'tests' ? 'text-ink' : 'text-graphite hover:text-ink'
+                  }`}
+                >
+                  tests
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={rightTab === 'executions'}
+                  onClick={() => setRightTab('executions')}
+                  className={`font-mono text-xs px-3 py-2 border-l border-graphite focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal ${
+                    rightTab === 'executions' ? 'text-ink' : 'text-graphite hover:text-ink'
+                  }`}
+                >
+                  executions
+                </button>
+              </div>
             </div>
-            <div className="p-4 font-mono text-sm text-graphite">
-              Test cases and executions land here in 4d–4f.
-            </div>
+
+            {rightTab === 'tests' ? (
+              cVariant ? (
+                <TestCasesTab status={checkState.status} results={checkState.results} onCheck={() => check(files)} />
+              ) : (
+                <div className="p-4 font-mono text-sm text-graphite">
+                  No test cases — this problem's language isn't enabled yet.
+                </div>
+              )
+            ) : cVariant ? (
+              <ExecutionsTab checkpoints={checkpoints} onRestore={handleRestore} />
+            ) : (
+              <div className="p-4 font-mono text-sm text-graphite">
+                No executions — this problem's language isn't enabled yet.
+              </div>
+            )}
           </section>
         </>
       )}

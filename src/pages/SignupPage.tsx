@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, User, Lock, Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Mail, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { useSignupFlow } from '../features/auth/signupFlow'
+import OtpInput from '../components/OtpInput'
 
 type Field = 'email' | 'otp' | 'username' | 'password' | 'confirmPassword'
 
@@ -128,31 +129,15 @@ export default function SignupPage() {
         </>
       ) : (
         <>
-          <div>
-            <label className="mb-2 block text-sm text-chalk">Verification code</label>
-            <div className="relative">
-              <KeyRound
-                size={16}
-                className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${iconClass('otp')}`}
-              />
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onFocus={() => setFocusedField('otp')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="123456"
-                maxLength={6}
-                className={`${fieldClass('otp')} font-mono tracking-[0.2em]`}
-                required
-              />
-            </div>
-            <p className="mt-2 font-mono text-xs text-graphite">
-              verification code sent to {email}
-            </p>
-          </div>
+          <OtpInput
+            variant="dark"
+            value={otp}
+            onChange={setOtp}
+            focused={focusedField === 'otp'}
+            onFocus={() => setFocusedField('otp')}
+            onBlur={() => setFocusedField(null)}
+            helperText={`verification code sent to ${email}`}
+          />
 
           <div>
             <label className="mb-2 block text-sm text-chalk">Username</label>

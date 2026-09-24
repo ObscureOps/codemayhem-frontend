@@ -11,6 +11,8 @@ import BattlePage from './pages/BattlePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import ProblemsPage from './pages/ProblemsPage'
 import ProblemPage from './pages/ProblemPage'
+import SecurityPage from './pages/SecurityPage'
+import FreestylePage from './pages/FreestylePage'
 
 export default function App() {
   return (
@@ -29,6 +31,8 @@ export default function App() {
             <Route path="/problems/:id" element={<ProblemPage />} />
             <Route path="/battle" element={<BattlePage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/security" element={<SecurityPage />} />
+            <Route path="/freestyle" element={<FreestylePage />} />
           </Route>
         </Route>
       </Routes>
