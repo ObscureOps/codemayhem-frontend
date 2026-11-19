@@ -1,7 +1,11 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { Settings } from 'lucide-react';
-import type { EditorThemeName } from './editorTheme';
+import {
+  EDITOR_FONTS,
+  EDITOR_THEMES,
+  type EditorFontName,
+  type EditorThemeName,
+} from './editorTheme';
 
 interface EditorSettingsPopoverProps {
   fontSize: number;
@@ -10,15 +14,15 @@ interface EditorSettingsPopoverProps {
   onWordWrapChange: (wrap: boolean) => void;
   theme: EditorThemeName;
   onThemeChange: (theme: EditorThemeName) => void;
+  fontFamily: EditorFontName;
+  onFontFamilyChange: (font: EditorFontName) => void;
 }
 
 const FONT_SIZES = [12, 14, 16, 18];
 
-// Settings are frontend-only editor preferences — plain useState, session
-// only, no persistence, no CONTRACT.md entry (nothing backend-facing
-// here). Font family stays locked to IBM Plex Mono regardless of these
-// settings — that's a design-token boundary, not a user preference, per
-// the Milestone 4 spec.
+const selectClass =
+  'w-full border border-graphite bg-ink px-2 py-1.5 text-chalk focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal';
+
 export function EditorSettingsPopover({
   fontSize,
   onFontSizeChange,
@@ -26,6 +30,8 @@ export function EditorSettingsPopover({
   onWordWrapChange,
   theme,
   onThemeChange,
+  fontFamily,
+  onFontFamilyChange,
 }: EditorSettingsPopoverProps) {
   const [open, setOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -52,33 +58,45 @@ export function EditorSettingsPopover({
         onClick={() => setOpen((o) => !o)}
         aria-label="Editor settings"
         aria-expanded={open}
-        className="text-graphite hover:text-chalk p-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
+        className="p-1.5 text-graphite hover:text-chalk focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
       >
         <Settings size={16} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-10 w-56 bg-ink border border-graphite p-4 font-mono text-sm text-chalk">
-          <div className="mb-4">
-            <p className="text-xs text-graphite mb-1.5">theme</p>
-            <div className="flex border border-graphite">
-              {(['ink', 'chalk'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => onThemeChange(t)}
-                  aria-pressed={theme === t}
-                  className={`flex-1 py-1.5 capitalize focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal ${
-                    theme === t ? 'bg-chalk text-ink' : 'text-graphite hover:text-chalk'
-                  }`}
-                >
-                  {t}
-                </button>
+        <div className="absolute right-0 top-full z-20 mt-1 w-64 space-y-4 border border-graphite bg-ink p-4 font-mono text-sm text-chalk">
+          <label className="block">
+            <span className="mb-1.5 block text-xs text-graphite">theme</span>
+            <select
+              value={theme}
+              onChange={(e) => onThemeChange(e.target.value as EditorThemeName)}
+              className={selectClass}
+            >
+              {EDITOR_THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label} ({t.description})
+                </option>
               ))}
-            </div>
-          </div>
+            </select>
+          </label>
 
-          <div className="mb-4">
-            <p className="text-xs text-graphite mb-1.5">font size</p>
+          <label className="block">
+            <span className="mb-1.5 block text-xs text-graphite">font</span>
+            <select
+              value={fontFamily}
+              onChange={(e) => onFontFamilyChange(e.target.value as EditorFontName)}
+              className={selectClass}
+            >
+              {EDITOR_FONTS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div>
+            <p className="mb-1.5 text-xs text-graphite">font size</p>
             <div className="flex border border-graphite">
               {FONT_SIZES.map((size) => (
                 <button
@@ -95,13 +113,12 @@ export function EditorSettingsPopover({
             </div>
           </div>
 
-          <label className="flex items-center justify-between cursor-pointer">
+          <label className="flex cursor-pointer items-center justify-between">
             <span className="text-graphite">word-wrap</span>
             <input
               type="checkbox"
               checked={wordWrap}
               onChange={(e) => onWordWrapChange(e.target.checked)}
-              className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
             />
           </label>
         </div>

@@ -1,69 +1,76 @@
-import { useCallback, useReducer, useRef } from 'react';
-import type { Language, ProblemResult, ProblemSubmissionStatus, ProblemSubmitFile } from '../../api/types/problems';
-import { mockSubmit } from '../../api/mocks/problems';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { apiClient } from '../../api/client';
+import type { Verdict } from '../../api/types/problems';
+import { classify } from './verdict';
 
-interface State {
-  status: 'idle' | ProblemSubmissionStatus;
-  result: ProblemResult | null;
+export type SubmissionState =
+  | { phase: 'idle' }
+  | { phase: 'submitting'; startedAt: number }
+  | { phase: 'done'; verdict: Verdict; durationMs: number };
+
+export interface HistoryEntry {
+  id: number;
+  at: number;
+  durationMs: number;
+  verdict: Verdict;
+  solution: string;
 }
 
-type Action =
-  | { type: 'SUBMIT' }
-  | { type: 'ADVANCE'; status: ProblemSubmissionStatus }
-  | { type: 'RESULT'; result: ProblemResult }
-  | { type: 'RESET' };
+const HISTORY_LIMIT = 20;
 
-const initialState: State = { status: 'idle', result: null };
+// The server returns one response after two sandbox runs and gives no stage
+// information, so the only honest progress signal is elapsed time.
+export function useProblemSubmissionFlow(problemId: string) {
+  const [state, setState] = useState<SubmissionState>({ phase: 'idle' });
+  const [elapsed, setElapsed] = useState(0);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const inFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const nextId = useRef(1);
 
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case 'SUBMIT':
-      return { status: 'queued', result: null };
-    case 'ADVANCE':
-      return { ...state, status: action.status };
-    case 'RESULT':
-      return { status: 'result', result: action.result };
-    case 'RESET':
-      return initialState;
-    default:
-      return state;
-  }
-}
+  useEffect(() => {
+    if (state.phase !== 'submitting') return;
+    const timer = window.setInterval(() => setElapsed(Date.now() - state.startedAt), 200);
+    return () => window.clearInterval(timer);
+  }, [state]);
 
-export function useProblemSubmissionFlow() {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  const timers = useRef<number[]>([]);
-
-  const clearTimers = useCallback(() => {
-    timers.current.forEach((id) => window.clearTimeout(id));
-    timers.current = [];
-  }, []);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const submit = useCallback(
-    (language: Language, files: ProblemSubmitFile[], variantId: string) => {
-      clearTimers();
-      dispatch({ type: 'SUBMIT' });
+    async (solution: string) => {
+      // The server cannot cancel a running job, so never start a second one.
+      if (inFlight.current) return;
+      inFlight.current = true;
 
-      timers.current.push(
-        window.setTimeout(() => dispatch({ type: 'ADVANCE', status: 'compiling' }), 500)
-      );
-      timers.current.push(
-        window.setTimeout(() => dispatch({ type: 'ADVANCE', status: 'running' }), 1200)
-      );
-      timers.current.push(
-        window.setTimeout(async () => {
-          const result = await mockSubmit(variantId, language, files);
-          dispatch({ type: 'RESULT', result });
-        }, 2200)
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const startedAt = Date.now();
+      setElapsed(0);
+      setState({ phase: 'submitting', startedAt });
+
+      let verdict: Verdict;
+      try {
+        const res = await apiClient.problems.submit(problemId, solution, controller.signal);
+        verdict = classify(res.status, res.body);
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+          inFlight.current = false;
+          return;
+        }
+        verdict = { kind: 'network_error' };
+      }
+
+      inFlight.current = false;
+      const durationMs = Date.now() - startedAt;
+      setState({ phase: 'done', verdict, durationMs });
+      setHistory((prev) =>
+        [{ id: nextId.current++, at: Date.now(), durationMs, verdict, solution }, ...prev].slice(0, HISTORY_LIMIT),
       );
     },
-    [clearTimers]
+    [problemId],
   );
 
-  const reset = useCallback(() => {
-    clearTimers();
-    dispatch({ type: 'RESET' });
-  }, [clearTimers]);
+  const reset = useCallback(() => setState({ phase: 'idle' }), []);
 
-  return { state, submit, reset };
+  return { state, elapsed, history, submit, reset, isSubmitting: state.phase === 'submitting' };
 }

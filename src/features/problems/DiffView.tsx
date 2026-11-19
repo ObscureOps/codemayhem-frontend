@@ -1,4 +1,3 @@
-
 import type { DiffLine, DiffResult } from './diff';
 
 const statusStyles: Record<DiffLine['status'], string> = {
@@ -16,18 +15,17 @@ interface DiffViewProps {
 // output. Structurally the same Okay/Excess/Lacking legend as the
 // CodeChum reference, rebuilt entirely from CISCODE's own tokens:
 // `pass`/`fail` for the two definite states, plain `graphite` (not a new
-// hue) for "excess" — `signal` stays reserved for SubmissionPanel and
-// isn't spent here. Not wired into any parent yet — 4d needs to exist
-// first so there's an actual failing test to open this from.
+// hue) for "excess" — `signal` stays reserved for the submit control and
+// isn't spent here. Opened from the Wrong Answer verdict.
 export function DiffView({ result, onClose }: DiffViewProps) {
   return (
     <div className="font-mono text-sm">
       <div className="flex items-center justify-between p-3 border-b border-graphite">
         <button
           onClick={onClose}
-          className="text-graphite hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
+          className="text-graphite hover:text-chalk focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal"
         >
-          &larr; back to tests
+          &larr; hide diff
         </button>
         <div className="flex gap-4 text-xs">
           <span className="text-pass">● okay</span>

@@ -11,6 +11,8 @@ import BattlePage from './pages/BattlePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import ProblemsPage from './pages/ProblemsPage'
 import ProblemPage from './pages/ProblemPage'
+import CreateProblemPage from './pages/CreateProblemPage'
+import EditProblemPage from './pages/EditProblemPage'
 import SecurityPage from './pages/SecurityPage'
 import FreestylePage from './pages/FreestylePage'
 
@@ -28,7 +30,9 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/problems" element={<ProblemsPage />} />
+            <Route path="/problems/new" element={<CreateProblemPage />} />
             <Route path="/problems/:id" element={<ProblemPage />} />
+            <Route path="/problems/:id/edit" element={<EditProblemPage />} />
             <Route path="/battle" element={<BattlePage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/security" element={<SecurityPage />} />

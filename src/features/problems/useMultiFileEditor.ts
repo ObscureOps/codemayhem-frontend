@@ -1,68 +1,367 @@
-
-import { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react'
 
 export interface EditorFile {
-  name: string;
-  content: string;
+  name: string
+  content: string
+  folderId?: string
 }
 
-const VALID_EXTENSIONS = ['.c', '.h'];
+const VALID_EXTENSIONS = ['.c', '.h']
 
-function validateFileName(name: string, existing: EditorFile[]): string | null {
-  if (!VALID_EXTENSIONS.some((ext) => name.endsWith(ext))) {
-    return 'must end in .c or .h';
+function validateFileName(
+  name: string,
+  existing: EditorFile[],
+  folderId: string | undefined,
+  currentName?: string
+): string | null {
+  if (
+    !VALID_EXTENSIONS.some((extension) =>
+      name.toLowerCase().endsWith(extension)
+    )
+  ) {
+    return 'must end in .c or .h'
   }
-  if (existing.some((f) => f.name === name)) {
-    return 'a file with that name already exists';
+
+  const duplicate = existing.some(
+    (file) =>
+      file.folderId === folderId &&
+      file.name !== currentName &&
+      file.name.toLowerCase() === name.toLowerCase()
+  )
+
+  if (duplicate) {
+    return 'a file with that name already exists in this folder'
   }
-  return null;
+
+  return null
 }
 
-// Plain useState — this is UI/layout state (which files are open, which
-// is active), not an async operation, per the Milestone 4 spec. Rename
-// isn't built here: not explicitly requested, and it adds real UI
-// complexity (inline-editable tabs, conflict checks against other open
-// files) that can be added later if it turns out to be needed.
-export function useMultiFileEditor(initialBoilerplate: string) {
-  const [files, setFiles] = useState<EditorFile[]>([{ name: 'main.c', content: initialBoilerplate }]);
-  const [activeFileName, setActiveFileName] = useState('main.c');
+function scopeFiles(
+  files: EditorFile[],
+  folderId: string | undefined
+) {
+  if (!folderId) {
+    return files
+  }
 
-  const resetFiles = useCallback((boilerplate: string) => {
-    setFiles([{ name: 'main.c', content: boilerplate }]);
-    setActiveFileName('main.c');
-  }, []);
+  return [
+    ...files.filter(
+      (file) => file.folderId === folderId
+    ),
+    ...files.filter(
+      (file) => file.folderId !== folderId
+    ),
+  ]
+}
 
-  const updateActiveFileContent = useCallback(
-    (content: string) => {
-      setFiles((prev) => prev.map((f) => (f.name === activeFileName ? { ...f, content } : f)));
+export function useMultiFileEditor(
+  initialBoilerplate: string
+) {
+  const [files, setFiles] = useState<EditorFile[]>([
+    {
+      name: 'main.c',
+      content: initialBoilerplate,
     },
-    [activeFileName]
-  );
+  ])
+
+  const [activeFileName, setActiveFileName] =
+    useState('main.c')
+
+  const [
+    activeFolderId,
+    setActiveFolderIdState,
+  ] = useState<string | undefined>()
+
+  const setFileScope = useCallback(
+    (folderId: string | undefined) => {
+      setActiveFolderIdState(folderId)
+
+      setFiles((previous) => {
+        const scoped = previous.some(
+          (file) =>
+            file.folderId === folderId
+        )
+
+        const tagged = scoped
+          ? previous
+          : previous.map((file) =>
+              file.folderId === undefined
+                ? {
+                    ...file,
+                    folderId,
+                  }
+                : file
+            )
+
+        return scopeFiles(
+          tagged,
+          folderId
+        )
+      })
+    },
+    []
+  )
+
+  const resetFiles = useCallback(
+    (
+      boilerplate: string,
+      folderId?: string
+    ) => {
+      setActiveFolderIdState(folderId)
+
+      setFiles([
+        {
+          name: 'main.c',
+          content: boilerplate,
+          folderId,
+        },
+      ])
+
+      setActiveFileName('main.c')
+    },
+    []
+  )
+
+  const restoreFiles = useCallback(
+    (restored: EditorFile[]) => {
+      if (restored.length === 0) {
+        return
+      }
+
+      setFiles(restored)
+
+      setActiveFileName(
+        restored.some(
+          (file) =>
+            file.name === 'main.c'
+        )
+          ? 'main.c'
+          : restored[0].name
+      )
+    },
+    []
+  )
+
+  const updateActiveFileContent =
+    useCallback(
+      (content: string) => {
+        setFiles((previous) =>
+          previous.map((file) =>
+            file.name === activeFileName &&
+            file.folderId === activeFolderId
+              ? {
+                  ...file,
+                  content,
+                }
+              : file
+          )
+        )
+      },
+      [
+        activeFileName,
+        activeFolderId,
+      ]
+    )
+
+  const updateFileContent = useCallback(
+    (
+      name: string,
+      content: string,
+      folderId?: string
+    ) => {
+      const scope =
+        folderId ?? activeFolderId
+
+      setFiles((previous) =>
+        previous.map((file) =>
+          file.name === name &&
+          file.folderId === scope
+            ? {
+                ...file,
+                content,
+              }
+            : file
+        )
+      )
+    },
+    [activeFolderId]
+  )
 
   const addFile = useCallback(
-    (name: string): string | null => {
-      const error = validateFileName(name, files);
-      if (error) return error;
-      setFiles((prev) => [...prev, { name, content: '' }]);
-      setActiveFileName(name);
-      return null;
-    },
-    [files]
-  );
+    (
+      name: string,
+      folderId?: string
+    ): string | null => {
+      const normalized = name.trim()
 
-  const closeFile = useCallback((name: string) => {
-    if (name === 'main.c') return; // locked, can't be closed
-    setFiles((prev) => prev.filter((f) => f.name !== name));
-    setActiveFileName((current) => (current === name ? 'main.c' : current));
-  }, []);
+      const scope =
+        folderId ?? activeFolderId
+
+      const error =
+        validateFileName(
+          normalized,
+          files,
+          scope
+        )
+
+      if (error) {
+        return error
+      }
+
+      setFiles((previous) =>
+        scopeFiles(
+          [
+            ...previous,
+            {
+              name: normalized,
+              content: '',
+              folderId: scope,
+            },
+          ],
+          scope
+        )
+      )
+
+      setActiveFileName(normalized)
+
+      if (folderId !== undefined) {
+        setActiveFolderIdState(
+          folderId
+        )
+      }
+
+      return null
+    },
+    [
+      files,
+      activeFolderId,
+    ]
+  )
+
+  const renameFile = useCallback(
+    (
+      currentName: string,
+      nextName: string,
+      folderId?: string
+    ): string | null => {
+      const normalized =
+        nextName.trim()
+
+      const scope =
+        folderId ?? activeFolderId
+
+      const error =
+        validateFileName(
+          normalized,
+          files,
+          scope,
+          currentName
+        )
+
+      if (error) {
+        return error
+      }
+
+      setFiles((previous) =>
+        previous.map((file) =>
+          file.name === currentName &&
+          file.folderId === scope
+            ? {
+                ...file,
+                name: normalized,
+              }
+            : file
+        )
+      )
+
+      setActiveFileName(
+        (current) =>
+          current === currentName
+            ? normalized
+            : current
+      )
+
+      return null
+    },
+    [
+      files,
+      activeFolderId,
+    ]
+  )
+
+  const closeFile = useCallback(
+    (
+      name: string,
+      folderId?: string
+    ) => {
+      const scope =
+        folderId ?? activeFolderId
+
+      if (name === 'main.c') {
+        return
+      }
+
+      setFiles((previous) =>
+        previous.filter(
+          (file) =>
+            !(
+              file.name === name &&
+              file.folderId === scope
+            )
+        )
+      )
+
+      setActiveFileName(
+        (current) =>
+          current === name
+            ? 'main.c'
+            : current
+      )
+    },
+    [activeFolderId]
+  )
+
+  const deleteFile = useCallback(
+    (
+      name: string,
+      folderId?: string
+    ) => {
+      const scope =
+        folderId ?? activeFolderId
+
+      setFiles((previous) =>
+        previous.filter(
+          (file) =>
+            !(
+              file.name === name &&
+              file.folderId === scope
+            )
+        )
+      )
+
+      setActiveFileName(
+        (current) =>
+          current === name
+            ? 'main.c'
+            : current
+      )
+    },
+    [activeFolderId]
+  )
 
   return {
     files,
     activeFileName,
+    activeFolderId,
     setActiveFileName,
+    setFileScope,
     updateActiveFileContent,
+    updateFileContent,
     addFile,
+    renameFile,
     closeFile,
+    deleteFile,
     resetFiles,
-  };
+    restoreFiles,
+  }
 }

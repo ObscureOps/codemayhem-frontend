@@ -9,6 +9,19 @@ import type {
   SignupResponse,
 } from './auth'
 import type { FreestyleLanguage, FreestyleRequest, FreestyleResponse } from './freestyle'
+import type {
+  CommunitySolution,
+  CreateProblemInput,
+  Marks,
+  MarkKind,
+  Problem,
+  ProblemSubmitResponse,
+  ProblemSummary,
+  Profile,
+  SolvedInfo,
+  UpdateProblemInput,
+  UpdateProblemMetaInput,
+} from './problems'
 
 export interface ApiClient {
   auth: {
@@ -23,13 +36,8 @@ export interface ApiClient {
 
     signin(req: { email: string; pass: string }): Promise<SigninResponse>
 
-    // Requires an authenticated session — the client reads the token from
-    // getSession() internally, callers never pass it directly.
     changePassword(req: { pass: string; otp: string }): Promise<ChangePasswordResponse>
 
-    // Requires an authenticated session. `otpOld` must have been requested
-    // for the current session email, `otpNew` for the `email` being
-    // switched to — two separate POST /otp calls before this one.
     changeEmail(req: {
       email: string
       otpOld: string
@@ -44,8 +52,47 @@ export interface ApiClient {
   }
 
   freestyle: {
-    // Routes to POST /gcc when language is 'c', POST /java when 'java'.
-    // No auth, no mock layer — compilerms is called directly.
     run(language: FreestyleLanguage, req: FreestyleRequest): Promise<FreestyleResponse>
+  }
+
+  problems: {
+    // Reads and simple writes go through SurrealDB's native /sql endpoint.
+    list(): Promise<ProblemSummary[]>
+    // null when the id is malformed or the problem does not exist.
+    get(id: string): Promise<Problem | null>
+    // problemId -> info about the solved record the user can read.
+    solved(): Promise<Record<string, SolvedInfo>>
+
+    // Custom API: POST /problem/:id, POST /problem, PATCH /problem/:id.
+    // They return the raw status and parsed body.
+    submit(id: string, solution: string, signal?: AbortSignal): Promise<ProblemSubmitResponse>
+    create(input: CreateProblemInput, signal?: AbortSignal): Promise<ProblemSubmitResponse>
+    update(id: string, input: UpdateProblemInput, signal?: AbortSignal): Promise<ProblemSubmitResponse>
+
+    // Author only: edit title, description, difficulty and starter code, or
+    // delete the whole problem. Both throw with the database's message on failure.
+    updateMeta(id: string, input: UpdateProblemMetaInput): Promise<void>
+    remove(id: string): Promise<void>
+
+    // Deletes the user's own solved record so the problem can be judged again.
+    // The judge answers 409 and skips running code while that record exists.
+    resetSolved(id: string): Promise<void>
+
+    // `attempted` relation: the last solution this user submitted.
+    saveAttempt(id: string, solution: string): Promise<void>
+    getAttempt(id: string): Promise<string | null>
+
+    // Flips solved.is_public for the user's own solved record.
+    setPublic(id: string, isPublic: boolean): Promise<void>
+    community(id: string): Promise<CommunitySolution[]>
+
+    // `liked` and `bookmarked` relations (own records only).
+    marks(): Promise<Marks>
+    setMark(kind: MarkKind, id: string, on: boolean): Promise<void>
+  }
+
+  profiles: {
+    // GET /profile/:id, cached per session. null when unavailable.
+    get(id: string): Promise<Profile | null>
   }
 }
