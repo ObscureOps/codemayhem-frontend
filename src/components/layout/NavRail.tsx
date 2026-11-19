@@ -1,156 +1,93 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  GraduationCap,
-  ListChecks,
-  Swords,
-  Trophy,
-  ShieldCheck,
-  Terminal,
-  LogOut,
-  type LucideIcon,
-} from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import type {
+  AuthSession,
+  ChangeEmailResponse,
+  ChangePasswordResponse,
+  LogoutResponse,
+  OtpRequest,
+  OtpResponse,
+  SigninResponse,
+  SignupResponse,
+} from './auth'
+import type {
+  CommunitySolution,
+  CreateProblemInput,
+  Marks,
+  MarkKind,
+  Problem,
+  ProblemSubmitResponse,
+  ProblemSummary,
+  Profile,
+  SolvedInfo,
+  UpdateProblemInput,
+  UpdateProblemMetaInput,
+} from './problems'
 
-interface NavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-}
+export interface ApiClient {
+  auth: {
+    requestOtp(req: OtpRequest): Promise<OtpResponse>
 
-const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/tutorial', label: 'Tutorial', icon: GraduationCap },
-  { to: '/problems', label: 'Problems', icon: ListChecks },
-  { to: '/battle', label: 'Battle', icon: Swords },
-  { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { to: '/security', label: 'Security', icon: ShieldCheck },
-  { to: '/freestyle', label: 'Freestyle', icon: Terminal },
-]
+    signup(req: {
+      email: string
+      otp: string
+      pass: string
+      username: string
+    }): Promise<SignupResponse>
 
-const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
-  [
-    'cyber-nav-link group relative flex h-full flex-col items-center justify-center gap-1 px-2 font-body text-[11px] transition-[background-color,color,border-color] duration-200 motion-reduce:transition-none md:h-auto md:flex-row md:justify-start md:gap-3 md:px-4 md:py-3 md:text-sm',
-    isActive
-      ? 'cyber-nav-link-active text-signal'
-      : 'text-[#a7b8ca] hover:text-[#edf5ff] hover:bg-[#0d1a29]',
-  ].join(' ')
+    signin(req: { email: string; pass: string }): Promise<SigninResponse>
 
-function LogoMark() {
-  return (
-    <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
-      <span className="absolute h-7 w-7 rotate-[-26deg] rounded-full border border-signal/90" />
-      <span className="absolute h-4 w-7 rotate-[22deg] rounded-full border border-signal/70" />
-      <span className="relative h-2.5 w-[1.125rem] rotate-[-18deg] rounded-full bg-signal/90" />
-    </div>
-  )
-}
+    changePassword(req: { pass: string; otp: string }): Promise<ChangePasswordResponse>
 
-export default function NavRail() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
+    changeEmail(req: {
+      email: string
+      otpOld: string
+      otpNew: string
+    }): Promise<ChangeEmailResponse>
 
-  async function handleLogout() {
-    await signOut()
-    navigate('/login', { replace: true })
+    logout(): Promise<LogoutResponse>
+
+    getSession(): Promise<AuthSession | null>
+    setSession(session: AuthSession, persist: boolean): Promise<void>
+    clearSession(): Promise<void>
   }
 
-  return (
-    <nav
-      aria-label="Primary"
-      className="cyber-nav fixed inset-x-0 bottom-0 z-50 flex h-16 w-full items-stretch border-t border-[#233b56] bg-[#07111d] md:static md:h-screen md:w-[222px] md:flex-col md:border-r md:border-t-0"
-    >
-      <div className="cyber-nav-noise pointer-events-none absolute inset-0" />
+  problems: {
+    // Reads and simple writes go through SurrealDB's native /sql endpoint.
+    list(): Promise<ProblemSummary[]>
+    // null when the id is malformed or the problem does not exist.
+    get(id: string): Promise<Problem | null>
+    // problemId -> info about the solved record the user can read.
+    solved(): Promise<Record<string, SolvedInfo>>
 
-      <div className="relative hidden px-5 pb-7 pt-6 md:block">
-        <div className="flex items-center gap-2.5">
-          <LogoMark />
+    // Custom API: POST /problem/:id, POST /problem, PATCH /problem/:id.
+    // They return the raw status and parsed body.
+    submit(id: string, solution: string, signal?: AbortSignal): Promise<ProblemSubmitResponse>
+    create(input: CreateProblemInput, signal?: AbortSignal): Promise<ProblemSubmitResponse>
+    update(id: string, input: UpdateProblemInput, signal?: AbortSignal): Promise<ProblemSubmitResponse>
 
-          <div>
-            <div className="font-display text-[17px] font-semibold tracking-[0.05em] text-[#edf5ff]">
-              CODEMAYHEM
-            </div>
+    // Author only: edit title, description, difficulty and starter code, or
+    // delete the whole problem. Both throw with the database's message on failure.
+    updateMeta(id: string, input: UpdateProblemMetaInput): Promise<void>
+    remove(id: string): Promise<void>
 
-            <div className="mt-0.5 font-mono text-[7px] uppercase tracking-[0.18em] text-[#7f96ad]">
-              code · learn · compete
-            </div>
-          </div>
-        </div>
-      </div>
+    // Deletes the user's own solved record so the problem can be judged again.
+    // The judge answers 409 and skips running code while that record exists.
+    resetSolved(id: string): Promise<void>
 
-      <ul className="relative flex w-full items-stretch justify-around md:flex-col md:items-stretch md:justify-start md:gap-1 md:px-3">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <li key={to} className="flex-1 md:flex-none">
-            <NavLink
-              to={to}
-              end={to === '/'}
-              className={navLinkClasses}
-            >
-              <Icon
-                className="h-[18px] w-[18px]"
-                strokeWidth={1.65}
-                aria-hidden="true"
-              />
+    // `attempted` relation: the last solution this user submitted.
+    saveAttempt(id: string, solution: string): Promise<void>
+    getAttempt(id: string): Promise<string | null>
 
-              <span className="tracking-[0.01em]">
-                {label}
-              </span>
+    // Flips solved.is_public for the user's own solved record.
+    setPublic(id: string, isPublic: boolean): Promise<void>
+    community(id: string): Promise<CommunitySolution[]>
 
-              <span className="cyber-nav-corner cyber-nav-corner-left" />
-              <span className="cyber-nav-corner cyber-nav-corner-right" />
-            </NavLink>
-          </li>
-        ))}
+    // `liked` and `bookmarked` relations (own records only).
+    marks(): Promise<Marks>
+    setMark(kind: MarkKind, id: string, on: boolean): Promise<void>
+  }
 
-        <li className="flex-1 md:hidden">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 font-body text-[11px] text-[#a7b8ca] transition-[color,background-color] duration-200 hover:bg-[#0d1a29] hover:text-[#edf5ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal motion-reduce:transition-none"
-          >
-            <LogOut
-              className="h-[18px] w-[18px]"
-              strokeWidth={1.65}
-              aria-hidden="true"
-            />
-
-            <span>Log out</span>
-          </button>
-        </li>
-      </ul>
-
-      <div className="relative hidden md:mt-auto md:block md:px-3 md:pb-5">
-        <div className="mb-4 h-px bg-[#21364e]" />
-
-        {user && (
-          <div className="mb-2 px-2.5">
-            <div className="font-mono text-[7px] uppercase tracking-[0.16em] text-[#7188a0]">
-              operator
-            </div>
-
-            <p
-              className="mt-1 truncate font-mono text-[10px] text-[#a6b8ca]"
-              title={user.email}
-            >
-              {user.email}
-            </p>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-left font-body text-sm text-[#9cafc2] transition-[background-color,color] duration-200 hover:bg-[#0d1a29] hover:text-[#edf5ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal motion-reduce:transition-none"
-        >
-          <LogOut
-            className="h-[18px] w-[18px]"
-            strokeWidth={1.65}
-            aria-hidden="true"
-          />
-
-          <span>Log out</span>
-        </button>
-      </div>
-    </nav>
-  )
+  profiles: {
+    // GET /profile/:id, cached per session. null when unavailable.
+    get(id: string): Promise<Profile | null>
+  }
 }

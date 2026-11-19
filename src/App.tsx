@@ -14,7 +14,6 @@ import ProblemPage from './pages/ProblemPage'
 import CreateProblemPage from './pages/CreateProblemPage'
 import EditProblemPage from './pages/EditProblemPage'
 import SecurityPage from './pages/SecurityPage'
-import FreestylePage from './pages/FreestylePage'
 
 export default function App() {
   return (
@@ -36,7 +35,6 @@ export default function App() {
             <Route path="/battle" element={<BattlePage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/security" element={<SecurityPage />} />
-            <Route path="/freestyle" element={<FreestylePage />} />
           </Route>
         </Route>
       </Routes>

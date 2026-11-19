@@ -10,7 +10,6 @@ import type {
   SignupRequest,
   SignupResponse,
 } from './types/auth'
-import type { FreestyleLanguage, FreestyleRequest, FreestyleResponse } from './types/freestyle'
 import type {
   CommunitySolution,
   CreateProblemInput,
@@ -30,10 +29,6 @@ const BASE_URL = 'https://codemayhem-api.dcism.org'
 // Custom `DEFINE API` endpoints (otp, signup, profile, password, email,
 // problem) are served under /api/:namespace/:database/:endpoint.
 const CUSTOM_API_BASE = `${BASE_URL}/api/main/main`
-
-// compilerms is a completely separate Go service (compiler/execution
-// sandbox), not part of codemayhem-api/SurrealDB. No auth required.
-const COMPILERMS_BASE_URL = 'https://compilerms.dcism.org'
 
 const SESSION_STORAGE_KEY = 'ciscode.session'
 
@@ -149,31 +144,6 @@ async function realChangeEmail(req: {
   })
 
   return { status: res.status, body: await res.text() }
-}
-
-// POST /gcc, POST /java, or POST /sqlite3tmp on compilerms, depending on
-// `language`. sqlite3tmp takes only `{ stdin }`. compilerms returns HTTP
-// 200 even on compile/runtime failure (see `reason` in the response).
-async function runFreestyle(
-  language: FreestyleLanguage,
-  req: FreestyleRequest,
-): Promise<FreestyleResponse> {
-  const path =
-    language === 'c' ? '/gcc' : language === 'java' ? '/java' : '/sqlite3tmp'
-
-  const res = await fetch(`${COMPILERMS_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  })
-
-  if (!res.ok) {
-    throw new Error(`compilerms request failed: ${res.status}`)
-  }
-
-  // compilerms doesn't reliably send Content-Type: application/json on
-  // the response, so parse as JSON regardless of the declared content type.
-  return res.json() as Promise<FreestyleResponse>
 }
 
 // ---- Problems ------------------------------------------------------------
@@ -578,10 +548,6 @@ export const apiClient: ApiClient = {
     getSession: () => getStoredSession(),
     setSession: (session, persist) => storeSession(session, persist),
     clearSession: () => clearStoredSession(),
-  },
-
-  freestyle: {
-    run: (language, req) => runFreestyle(language, req),
   },
 
   problems: {
